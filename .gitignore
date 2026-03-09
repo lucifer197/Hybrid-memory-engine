@@ -1,0 +1,55 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build output
+dist/
+build/
+.next/
+out/
+*.tsbuildinfo
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+*.pem
+credentials.json
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Testing
+coverage/
+.nyc_output/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor / IDE
+.vscode/settings.json
+.idea/
+*.swp
+*.swo
+*~
+
+# Docker temp
+docker-compose.override.yml
+
+# Database dumps
+*.dump
+*.sql.gz
+
+# Redis
+dump.rdb

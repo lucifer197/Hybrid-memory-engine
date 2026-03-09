@@ -1,0 +1,248 @@
+services:
+  # ── Postgres (with pgvector) ────────────────────────────────
+  postgres:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: hybrid
+      POSTGRES_PASSWORD: hybrid
+      POSTGRES_DB: hybrid_memory
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      # Auto-run migrations on first start
+      - ../../apps/memory-service/src/migrations/001_init.sql:/docker-entrypoint-initdb.d/001_init.sql:ro
+      - ../../apps/memory-service/src/migrations/002_indexes.sql:/docker-entrypoint-initdb.d/002_indexes.sql:ro
+      - ../../apps/memory-service/src/migrations/003_pgvector.sql:/docker-entrypoint-initdb.d/003_pgvector.sql:ro
+      - ../../apps/memory-service/src/migrations/004_embeddings.sql:/docker-entrypoint-initdb.d/004_embeddings.sql:ro
+      - ../../apps/memory-service/src/migrations/005_graph_tables.sql:/docker-entrypoint-initdb.d/005_graph_tables.sql:ro
+      - ../../apps/memory-service/src/migrations/006_lifecycle_fields.sql:/docker-entrypoint-initdb.d/006_lifecycle_fields.sql:ro
+      - ../../apps/memory-service/src/migrations/007_memory_events.sql:/docker-entrypoint-initdb.d/007_memory_events.sql:ro
+      - ../../apps/memory-service/src/migrations/008_consolidation_tables.sql:/docker-entrypoint-initdb.d/008_consolidation_tables.sql:ro
+      - ../../apps/memory-service/src/migrations/009_retrieval_config.sql:/docker-entrypoint-initdb.d/009_retrieval_config.sql:ro
+      - ../../apps/memory-service/src/migrations/010_forget_tombstones.sql:/docker-entrypoint-initdb.d/010_forget_tombstones.sql:ro
+      - ../../apps/memory-service/src/migrations/011_semantic_facts.sql:/docker-entrypoint-initdb.d/011_semantic_facts.sql:ro
+      - ../../apps/memory-service/src/migrations/012_fact_evidence.sql:/docker-entrypoint-initdb.d/012_fact_evidence.sql:ro
+      - ../../apps/memory-service/src/migrations/013_fact_events.sql:/docker-entrypoint-initdb.d/013_fact_events.sql:ro
+      - ../../apps/memory-service/src/migrations/014_fact_conflicts.sql:/docker-entrypoint-initdb.d/014_fact_conflicts.sql:ro
+      - ../../apps/memory-service/src/migrations/015_truth_fields.sql:/docker-entrypoint-initdb.d/015_truth_fields.sql:ro
+      - ../../apps/memory-service/src/migrations/016_fact_feedback.sql:/docker-entrypoint-initdb.d/016_fact_feedback.sql:ro
+      - ../../apps/memory-service/src/migrations/017_fact_contradictions.sql:/docker-entrypoint-initdb.d/017_fact_contradictions.sql:ro
+      - ../../apps/memory-service/src/migrations/018_dead_letter_jobs.sql:/docker-entrypoint-initdb.d/018_dead_letter_jobs.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hybrid -d hybrid_memory"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # ── Redis (job queue) ───────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # ── Memory Service (internal) ───────────────────────────────
+  memory-service:
+    build:
+      context: ../../
+      dockerfile: apps/memory-service/Dockerfile
+    ports:
+      - "3001:3001"
+    environment:
+      DATABASE_URL: postgres://hybrid:hybrid@postgres:5432/hybrid_memory
+      REDIS_URL: redis://redis:6379
+      PORT: "3001"
+      NODE_ENV: development
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3001/readyz || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # ── Embedding Worker (Python) ───────────────────────────────
+  embedding-worker:
+    build:
+      context: ../../apps/embedding-worker
+      dockerfile: Dockerfile
+    environment:
+      DATABASE_URL: postgres://hybrid:hybrid@postgres:5432/hybrid_memory
+      REDIS_URL: redis://redis:6379
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      EMBEDDING_MODEL: text-embedding-3-small
+      EMBEDDING_DIM: "1536"
+      MOCK_EMBEDDINGS: ${MOCK_EMBEDDINGS:-false}
+      HEALTH_PORT: "3007"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:3007/readyz')\""]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # ── Retrieval Orchestrator (internal) ───────────────────────
+  retrieval-orchestrator:
+    build:
+      context: ../../
+      dockerfile: apps/retrieval-orchestrator/Dockerfile
+    ports:
+      - "3002:3002"
+    environment:
+      DATABASE_URL: postgres://hybrid:hybrid@postgres:5432/hybrid_memory
+      REDIS_URL: redis://redis:6379
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      EMBEDDING_MODEL: text-embedding-3-small
+      EMBEDDING_DIM: "1536"
+      MOCK_EMBEDDINGS: ${MOCK_EMBEDDINGS:-false}
+      PORT: "3002"
+      NODE_ENV: development
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3002/readyz || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # ── Graph Worker (TypeScript) ──────────────────────────────
+  graph-worker:
+    build:
+      context: ../../
+      dockerfile: apps/graph-worker/Dockerfile
+    environment:
+      DATABASE_URL: postgres://hybrid:hybrid@postgres:5432/hybrid_memory
+      REDIS_URL: redis://redis:6379
+      SIMILAR_EDGE_LIMIT: "5"
+      SIMILAR_EDGE_THRESHOLD: "0.3"
+      NODE_ENV: development
+      METRICS_PORT: "3003"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3003/readyz || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # ── Lifecycle Worker (TypeScript) ──────────────────────────
+  lifecycle-worker:
+    build:
+      context: ../../
+      dockerfile: apps/lifecycle-worker/Dockerfile
+    environment:
+      DATABASE_URL: postgres://hybrid:hybrid@postgres:5432/hybrid_memory
+      REDIS_URL: redis://redis:6379
+      NODE_ENV: development
+      DECAY_INTERVAL_SEC: "3600"
+      ARCHIVE_INTERVAL_SEC: "3600"
+      CONSOLIDATE_INTERVAL_SEC: "7200"
+      METRICS_PORT: "3004"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3004/readyz || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # ── Consolidation Worker (TypeScript) ──────────────────────
+  consolidation-worker:
+    build:
+      context: ../../
+      dockerfile: apps/consolidation-worker/Dockerfile
+    environment:
+      DATABASE_URL: postgres://hybrid:hybrid@postgres:5432/hybrid_memory
+      REDIS_URL: redis://redis:6379
+      NODE_ENV: development
+      SWEEP_INTERVAL_SEC: "3600"
+      SWEEP_BATCH_SIZE: "100"
+      MIN_CONFIDENCE: "0.6"
+      METRICS_PORT: "3005"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3005/readyz || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # ── Truth Worker (TypeScript) ─────────────────────────────────
+  truth-worker:
+    build:
+      context: ../../
+      dockerfile: apps/truth-worker/Dockerfile
+    environment:
+      DATABASE_URL: postgres://hybrid:hybrid@postgres:5432/hybrid_memory
+      NODE_ENV: development
+      CONTRADICTION_INTERVAL_SEC: "1800"
+      STALE_REVIEW_INTERVAL_SEC: "3600"
+      STALE_THRESHOLD_DAYS: "90"
+      BATCH_SIZE: "100"
+      METRICS_PORT: "3006"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3006/readyz || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # ── API Gateway (public) ────────────────────────────────────
+  api-gateway:
+    build:
+      context: ../../
+      dockerfile: apps/api-gateway/Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      PORT: "3000"
+      MEMORY_SERVICE_URL: http://memory-service:3001
+      RETRIEVAL_ORCHESTRATOR_URL: http://retrieval-orchestrator:3002
+      NODE_ENV: development
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3000/readyz || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    depends_on:
+      - memory-service
+      - retrieval-orchestrator
+
+volumes:
+  pgdata:

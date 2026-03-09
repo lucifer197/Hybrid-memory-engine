@@ -1,0 +1,25 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "commonjs",
+    "lib": ["ES2022"],
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "declaration": true
+  },
+  "files": [],
+  "references": [
+    { "path": "packages/shared-types" },
+    { "path": "packages/observability" },
+    { "path": "apps/memory-service" },
+    { "path": "apps/api-gateway" },
+    { "path": "apps/retrieval-orchestrator" },
+    { "path": "apps/graph-worker" },
+    { "path": "apps/lifecycle-worker" },
+    { "path": "apps/consolidation-worker" },
+    { "path": "apps/truth-worker" }
+  ]
+}

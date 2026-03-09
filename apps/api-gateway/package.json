@@ -1,0 +1,24 @@
+{
+  "name": "@hybrid-memory/api-gateway",
+  "version": "0.1.0",
+  "private": true,
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "dev": "ts-node-dev --respawn src/index.ts",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@hybrid-memory/observability": "*",
+    "@hybrid-memory/shared-types": "*",
+    "express": "^4.21.0",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^22.0.0",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.5.0",
+    "vitest": "^2.1.0"
+  }
+}

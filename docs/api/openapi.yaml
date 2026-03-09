@@ -1,0 +1,391 @@
+openapi: "3.1.0"
+info:
+  title: Hybrid Memory API
+  version: "0.1.0"
+  description: |
+    Hybrid memory layer combining vector, graph, and temporal signals.
+    Two core endpoints: write conversation turns and retrieve relevant context.
+
+servers:
+  - url: http://localhost:3000
+    description: Local development
+
+security:
+  - ApiKeyAuth: []
+
+paths:
+  /v1/memory/turn:
+    post:
+      operationId: writeTurn
+      summary: Write a conversation turn into the memory layer
+      description: |
+        Ingests a conversation turn (one or more messages).
+        The system extracts memories, generates embeddings,
+        builds graph edges, and returns the created memory IDs.
+      tags: [Memory]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WriteTurnRequest"
+            example:
+              tenant_id: "tenant_abc"
+              workspace_id: "ws_1"
+              user_id: "user_42"
+              session_id: "sess_xyz"
+              turn_id: "turn_001"
+              messages:
+                - role: "user"
+                  content: "Remember that I prefer dark mode in all my IDEs."
+                - role: "assistant"
+                  content: "Got it — I'll remember your dark-mode preference."
+              memory_hints:
+                - "preference"
+      responses:
+        "201":
+          description: Turn ingested, memories created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WriteTurnResponse"
+              example:
+                turn_id: "turn_001"
+                memory_ids: ["mem_a1b2c3"]
+                created_at: "2026-03-02T12:00:00Z"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /v1/memory/retrieve:
+    post:
+      operationId: retrieveContext
+      summary: Retrieve relevant memories for a query
+      description: |
+        Performs hybrid retrieval combining vector similarity,
+        graph traversal, recency decay, and stability scoring
+        to return the most relevant memories.
+      tags: [Memory]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RetrieveContextRequest"
+            example:
+              tenant_id: "tenant_abc"
+              workspace_id: "ws_1"
+              user_id: "user_42"
+              query: "What IDE theme does the user prefer?"
+              k: 5
+              debug: true
+      responses:
+        "200":
+          description: Memories retrieved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RetrieveContextResponse"
+              example:
+                memories:
+                  - memory_id: "mem_a1b2c3"
+                    content: "User prefers dark mode in all IDEs."
+                    memory_type: "preference"
+                    score: 0.94
+                    created_at: "2026-03-02T12:00:00Z"
+                debug_info:
+                  - vector_score: 0.91
+                    graph_score: 0.85
+                    recency_score: 0.99
+                    stability_score: 0.78
+                    retrieval_ms: 42
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    # ── Write Turn ──────────────────────────────────────────
+    WriteTurnRequest:
+      type: object
+      required:
+        - tenant_id
+        - workspace_id
+        - user_id
+        - session_id
+        - turn_id
+        - messages
+      properties:
+        tenant_id:
+          type: string
+          minLength: 1
+        workspace_id:
+          type: string
+          minLength: 1
+        user_id:
+          type: string
+          minLength: 1
+        session_id:
+          type: string
+          minLength: 1
+        turn_id:
+          type: string
+          minLength: 1
+          description: Idempotency key for the turn
+        messages:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/MessageDTO"
+        agent_id:
+          type: string
+        tool_calls:
+          type: array
+          items:
+            $ref: "#/components/schemas/ToolCallDTO"
+        metadata:
+          type: object
+          additionalProperties: true
+        memory_hints:
+          type: array
+          items:
+            type: string
+
+    MessageDTO:
+      type: object
+      required: [role, content]
+      properties:
+        role:
+          type: string
+          enum: [user, assistant, system, tool]
+        content:
+          type: string
+          minLength: 1
+
+    ToolCallDTO:
+      type: object
+      required: [id, name, arguments]
+      properties:
+        id:
+          type: string
+          minLength: 1
+        name:
+          type: string
+          minLength: 1
+        arguments:
+          type: object
+          additionalProperties: true
+        result:
+          type: string
+
+    WriteTurnResponse:
+      type: object
+      required: [turn_id, memory_ids, created_at]
+      properties:
+        turn_id:
+          type: string
+        memory_ids:
+          type: array
+          items:
+            type: string
+        created_at:
+          type: string
+          format: date-time
+
+    # ── Retrieve Context ────────────────────────────────────
+    RetrieveContextRequest:
+      type: object
+      required:
+        - tenant_id
+        - workspace_id
+        - user_id
+        - query
+      properties:
+        tenant_id:
+          type: string
+          minLength: 1
+        workspace_id:
+          type: string
+          minLength: 1
+        user_id:
+          type: string
+          minLength: 1
+        query:
+          type: string
+          minLength: 1
+        session_id:
+          type: string
+        k:
+          type: integer
+          minimum: 1
+          maximum: 20
+          default: 8
+        filters:
+          $ref: "#/components/schemas/RetrieveFilters"
+        debug:
+          type: boolean
+          default: false
+
+    RetrieveFilters:
+      type: object
+      properties:
+        memory_types:
+          type: array
+          items:
+            $ref: "#/components/schemas/MemoryType"
+        privacy_scope:
+          $ref: "#/components/schemas/PrivacyScope"
+        session_id:
+          type: string
+        agent_id:
+          type: string
+        after:
+          type: string
+          format: date-time
+        before:
+          type: string
+          format: date-time
+
+    RetrieveContextResponse:
+      type: object
+      required: [memories]
+      properties:
+        memories:
+          type: array
+          items:
+            $ref: "#/components/schemas/MemoryRefDTO"
+        debug_info:
+          type: array
+          items:
+            $ref: "#/components/schemas/DebugInfo"
+
+    MemoryRefDTO:
+      type: object
+      required: [memory_id, content, memory_type, score, created_at]
+      properties:
+        memory_id:
+          type: string
+        content:
+          type: string
+        memory_type:
+          $ref: "#/components/schemas/MemoryType"
+        score:
+          type: number
+          minimum: 0
+          maximum: 1
+        created_at:
+          type: string
+          format: date-time
+        metadata:
+          type: object
+          additionalProperties: true
+
+    DebugInfo:
+      type: object
+      properties:
+        vector_score:
+          type: number
+        graph_score:
+          type: number
+        recency_score:
+          type: number
+        stability_score:
+          type: number
+        retrieval_ms:
+          type: number
+
+    # ── Enums ───────────────────────────────────────────────
+    MemoryType:
+      type: string
+      enum: [working, episodic, semantic, procedural, preference]
+
+    PrivacyScope:
+      type: string
+      enum: [private, workspace, tenant]
+
+    # ── Error ───────────────────────────────────────────────
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              enum:
+                - BAD_REQUEST
+                - UNAUTHORIZED
+                - FORBIDDEN
+                - NOT_FOUND
+                - CONFLICT
+                - RATE_LIMITED
+                - INTERNAL_ERROR
+                - SERVICE_UNAVAILABLE
+            message:
+              type: string
+            details:
+              description: Optional structured details about the error
+
+  responses:
+    Unauthorized:
+      description: Missing or invalid authentication
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            error:
+              code: "UNAUTHORIZED"
+              message: "Invalid or missing API key"
+
+    RateLimited:
+      description: Too many requests
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            error:
+              code: "RATE_LIMITED"
+              message: "Rate limit exceeded. Retry after 60 seconds."
+
+    InternalError:
+      description: Unexpected server error
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            error:
+              code: "INTERNAL_ERROR"
+              message: "An unexpected error occurred"

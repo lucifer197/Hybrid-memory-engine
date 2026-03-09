@@ -1,0 +1,44 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: "api-gateway"
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["api-gateway:3000"]
+
+  - job_name: "memory-service"
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["memory-service:3001"]
+
+  - job_name: "retrieval-orchestrator"
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["retrieval-orchestrator:3002"]
+
+  - job_name: "graph-worker"
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["graph-worker:3003"]
+
+  - job_name: "lifecycle-worker"
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["lifecycle-worker:3004"]
+
+  - job_name: "consolidation-worker"
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["consolidation-worker:3005"]
+
+  - job_name: "truth-worker"
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["truth-worker:3006"]
+
+  - job_name: "embedding-worker"
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["embedding-worker:3007"]

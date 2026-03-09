@@ -1,169 +1,276 @@
-
 Hybrid Memory Engine
 
-Hybrid Memory Engine is a long-term memory infrastructure designed for AI systems and intelligent agents. It provides a structured way to store, manage, update, and retrieve knowledge over time.
+Hybrid Memory Engine is an experimental long-term memory architecture for AI agents and large language models.
+The system combines vector search, knowledge graphs, lifecycle scoring, and multi-stage retrieval to enable AI systems to maintain persistent and evolving memory.
 
-Most current AI systems rely on simple vector search for memory retrieval. While this works for short-term recall, it often fails when knowledge evolves or when large volumes of information accumulate.
+Traditional RAG systems store information as static vectors. Hybrid Memory Engine explores a more structured approach where memory evolves over time through lifecycle management, relationship linking, and consolidation.
 
-This project explores a hybrid architecture that combines vector retrieval, knowledge graph relationships, lifecycle scoring, and truth revision to maintain reliable long-term memory.
-
-The goal is to allow AI systems to remember information in a more structured and reliable way.
-
-⸻
-
-The Problem
-
-Modern AI systems struggle with long-term memory.
-
-Common problems include:
-
-AI forgets previously stored information.
-
-Older or outdated facts are retrieved alongside newer ones.
-
-Important information becomes buried among irrelevant memories.
-
-Systems cannot evolve their knowledge when new information contradicts old data.
-
-Most current solutions simply store conversations and perform similarity search using embeddings. This works well for short-term context but becomes unreliable for long-term knowledge management.
+The goal is to improve how AI systems recall context, maintain facts, and connect related information across long time periods.
 
 ⸻
 
-The Idea
+Problem
 
-Hybrid Memory Engine introduces a memory architecture that treats memory as a dynamic system rather than a static database.
+Current AI systems struggle with long-term memory.
 
-Instead of simply storing text and retrieving similar content, the system manages the entire lifecycle of memory.
+Most implementations rely only on vector similarity search. While this works for semantic retrieval, it introduces several limitations.
 
-This includes forming memory from interactions, connecting related memories, updating beliefs when facts change, consolidating repeated information into stable knowledge, and ranking memories based on importance and reliability.
+AI forgets earlier interactions
+Important facts may be lost over time
+Outdated information may still be retrieved
+Relationships between memories are not captured
+Memory systems lack lifecycle evolution
 
-The architecture is designed so that knowledge can evolve over time rather than remaining static.
+These limitations make it difficult for AI agents to maintain persistent knowledge about users, environments, or tasks.
+
+⸻
+
+Solution
+
+Hybrid Memory Engine introduces a hybrid memory architecture.
+
+Instead of storing memories as static vectors, the system organizes memory across multiple layers.
+
+Vector similarity for semantic retrieval
+Graph relationships for linking related memories
+Lifecycle scoring to track importance and decay
+Consolidation pipelines to convert repeated events into facts
+Multi-stage retrieval to improve ranking and speed
+
+This architecture allows AI systems to maintain structured long-term memory.
 
 ⸻
 
 Architecture Overview
 
-The system is organized into a ten-phase memory pipeline.
+User or AI Agent Interaction
 
-Phase 1 – Memory API and Interface Layer
-Applications and AI agents interact with the memory engine through an API. Every interaction can be stored as a memory event.
+↓
 
-Phase 2 – Canonical Memory Storage
-Interactions are stored as structured memory records in a persistent database.
+API Gateway
 
-Phase 3 – Vector Embeddings
-Memory content is converted into embeddings so it can be searched semantically.
+↓
 
-Phase 4 – Knowledge Graph Linking
-Memories are connected using relationships, forming a graph of related knowledge.
+Memory Service
 
-Phase 5 – Hybrid Retrieval Engine
-The system retrieves candidate memories using vector similarity and graph connections.
+↓
 
-Phase 6 – Memory Lifecycle Management
-Memories are assigned scores and gradually decay or strengthen depending on usage.
+Storage Layer
 
-Phase 7 – Truth Maintenance and Belief Revision
-When new information contradicts older memories, the system updates knowledge rather than returning conflicting results.
+Postgres with pgvector — vector memory
+Redis — caching and working memory
+Neo4j — relationship graph
 
-Phase 8 – Memory Consolidation
-Repeated information can be consolidated into stable knowledge records.
+↓
 
-Phase 9 – Reliability and Observability
-The system tracks retrieval accuracy, memory quality, and system performance.
+Processing Workers
 
-Phase 10 – Multi-Stage Retrieval Optimization
-The retrieval pipeline uses multiple ranking stages to improve recall accuracy and efficiency.
+Embedding worker
+Graph linking worker
+Lifecycle worker
+Consolidation worker
 
-⸻
+↓
 
-How the System Works
+Retrieval Orchestrator
 
-When a user interacts with an AI agent, the interaction can be sent to the memory engine.
+↓
 
-The system first stores the interaction as a memory event. The text is then processed and converted into embeddings so it can be searched later.
-
-Related memories may be linked together through graph relationships. Over time, frequently referenced memories become stronger while unused memories gradually decay.
-
-If the system encounters new information that contradicts older data, the truth maintenance layer updates the knowledge rather than returning conflicting answers.
-
-When a query is made, the system retrieves relevant memories through a hybrid retrieval process that combines vector search, graph connections, and ranking logic.
-
-The result is a more reliable set of contextual information that can be used by AI systems.
+Final context returned to the AI model
 
 ⸻
 
-System Components
+Key Features
 
-The system consists of several services that work together.
-
-The API Gateway receives requests from external applications.
-
-The Memory Service handles memory creation and storage.
-
-The Retrieval Orchestrator manages the retrieval pipeline.
-
-Embedding Workers generate vector representations for memory chunks.
-
-Graph Workers create relationships between memories.
-
-Lifecycle Workers manage decay and reinforcement of memory importance.
-
-Consolidation Workers convert repeated information into stable knowledge.
-
-Truth Workers maintain the accuracy of stored knowledge.
-
-The system relies on PostgreSQL with vector extensions for storage and Redis for background job queues.
+Hybrid memory combining vectors and graph relationships
+Memory lifecycle scoring and decay
+Fact consolidation from repeated interactions
+Truth revision to update outdated knowledge
+Multi-stage retrieval pipeline
+Scalable architecture for AI agent systems
 
 ⸻
 
-Getting Started
+Repository Structure
 
-To run the system locally, clone the repository and start the infrastructure using Docker.
+apps
+Core services including API gateway and memory service
 
-After starting the services, the API can receive memory events and retrieval queries.
+packages
+Shared modules and reusable logic
 
-A simple test interaction can be sent to store a memory, and later queries can retrieve relevant information.
+storage
+Database schemas and configurations
 
-⸻
+scripts
+Development and startup scripts
 
-Project Structure
-
-The repository is organized into several main directories.
-
-The apps directory contains the main services such as the API gateway and memory service.
-
-The packages directory contains shared libraries and types used across services.
-
-The infrastructure directory includes Docker configuration and deployment files.
-
-The storage directory contains database schemas and storage configuration.
-
-The scripts directory contains development and startup scripts.
-
-Documentation files describe the architecture and system design.
+observability
+Logging, metrics, and tracing utilities
 
 ⸻
 
-Why This Project Exists
+Running the System
 
-As AI systems become more capable, the need for reliable long-term memory becomes increasingly important.
+This section explains how to run Hybrid Memory Engine locally.
 
-Hybrid Memory Engine explores an architecture where memory is not just stored but actively managed. Instead of treating memory as static text, the system treats it as evolving knowledge.
+Requirements
 
-This approach aims to improve how AI systems remember information, update beliefs, and retrieve context over long periods of time.
+Node.js version 18 or later
+Docker and Docker Compose
+Git
+pnpm or npm
+
+The system uses Docker containers to run database services.
+
+⸻
+
+Clone the Repository
+
+Open a terminal and run
+
+git clone https://github.com/lucifer197/Hybrid-memory-engine.git
+
+Move into the project directory
+
+cd Hybrid-memory-engine
+
+⸻
+
+Install Dependencies
+
+Install the required packages.
+
+Using pnpm
+
+pnpm install
+
+Using npm
+
+npm install
+
+⸻
+
+Start Infrastructure Services
+
+The system requires several backend services.
+
+Postgres with pgvector
+Redis
+Neo4j
+
+Start these services with Docker
+
+docker compose up -d
+
+This will launch all infrastructure containers locally.
+
+⸻
+
+Start the API Service
+
+Run the application server.
+
+pnpm run dev
+
+or
+
+npm run dev
+
+The API will start at
+
+http://localhost:3000
+
+⸻
+
+Test Memory Write
+
+Send a memory write request.
+
+POST
+http://localhost:3000/v1/memory/write
+
+Example request body
+
+{
+“tenant_id”: “demo”,
+“workspace_id”: “main”,
+“user_id”: “user1”,
+“content”: “My favorite programming language is Rust”
+}
+
+The system will store and process this memory.
+
+⸻
+
+Test Memory Retrieval
+
+Retrieve stored memory.
+
+POST
+http://localhost:3000/v1/memory/retrieve
+
+Example request body
+
+{
+“tenant_id”: “demo”,
+“workspace_id”: “main”,
+“user_id”: “user1”,
+“query”: “What programming language do I like?”
+}
+
+The system will search memory and return relevant results.
+
+⸻
+
+Verify Stored Memory
+
+You can inspect memory directly in Postgres.
+
+docker exec -it docker-postgres-1 psql -U hybrid -d hybrid_memory
+
+Then run
+
+SELECT * FROM memories;
+
+⸻
+
+Development
+
+Run the system in development mode
+
+pnpm run dev
+
+This enables live reload and debugging.
+
+⸻
+
+Project Status
+
+Hybrid Memory Engine is currently in an experimental research stage.
+
+The core memory architecture and infrastructure are implemented. Ongoing development focuses on evaluation frameworks, improved retrieval pipelines, and agent integrations.
 
 ⸻
 
 Roadmap
 
-Future work may include improved evaluation methods for long-term memory retrieval, distributed scaling for large deployments, expanded graph reasoning capabilities, and integrations with AI agent frameworks.
+Add memory recall benchmarks
+Improve retrieval ranking and filtering
+Support procedural memory for AI agents
+Integrate with agent frameworks
+Build real-world demos and evaluation tools
+
+⸻
+
+Vision
+
+Future AI systems will require persistent memory architectures.
+
+Hybrid Memory Engine explores how structured memory systems combining semantic search, graph relationships, and lifecycle evolution can enable more reliable long-term AI reasoning.
 
 ⸻
 
 License
 
-This project is released under the MIT License
-=======
-# Hybrid-memory-engine
->>>>>>> d5c1244411af85110d0589f3b3a2cba99b76424b
+MIT License

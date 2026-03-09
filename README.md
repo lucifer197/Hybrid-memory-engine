@@ -1,4 +1,4 @@
-<<<<<<< HEAD
+
 Hybrid Memory Engine
 
 Hybrid Memory Engine is a long-term memory infrastructure designed for AI systems and intelligent agents. It provides a structured way to store, manage, update, and retrieve knowledge over time.

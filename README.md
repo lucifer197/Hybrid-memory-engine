@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 Hybrid Memory Engine
 
 Hybrid Memory Engine is a long-term memory infrastructure designed for AI systems and intelligent agents. It provides a structured way to store, manage, update, and retrieve knowledge over time.
@@ -163,3 +164,6 @@ Future work may include improved evaluation methods for long-term memory retriev
 License
 
 This project is released under the MIT License
+=======
+# Hybrid-memory-engine
+>>>>>>> d5c1244411af85110d0589f3b3a2cba99b76424b
